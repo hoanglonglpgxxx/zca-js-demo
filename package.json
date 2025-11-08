@@ -1,17 +1,19 @@
 {
   "name": "zca-js-demo",
   "version": "1.0.0",
+  "type": "module",
   "description": "Test 3rdparty zalo",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "build": "echo 'No build step required for this project'",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node feat.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^5.1.0",
     "nodemon": "^3.1.10",
     "sharp": "^0.34.5",
     "zca-js": "^2.0.4"
