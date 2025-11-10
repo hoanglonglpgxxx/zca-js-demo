@@ -1,4 +1,4 @@
-import fs from 'fs';
+// import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
@@ -27,16 +27,7 @@ function debugLog(...args) {
     });
     const line = `${prefix} ${textParts.join(' ')}\n`;
 
-    try {
-        if (!fs.existsSync(LOG_DIR)) {
-            fs.mkdirSync(LOG_DIR, { recursive: true });
-        }
-        fs.appendFile(LOG_FILE, line, (err) => {
-            if (err) console.error('Failed to write log to file:', err);
-        });
-    } catch (err) {
-        console.error('Logging error:', err);
-    }
+    console.log(line);
 }
 
 export {
