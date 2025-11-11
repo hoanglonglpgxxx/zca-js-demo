@@ -2,19 +2,19 @@
 import { Zalo } from "zca-js";
 import msgActions from "./msgActions.js";
 import groupEventListener from "./groupEventListener.js";
-import { debugLog } from './Utils.js'; // Đảm bảo bạn có file Utils.js
+import { debugLog } from './Utils.js';
 import fs from 'fs';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cluster from 'cluster';
 import os from 'os';
-// import { createClient } from 'redis'; // Bỏ comment nếu bạn dùng Redis
-import 'dotenv/config';
+// import { createClient } from 'redis';
+//import 'dotenv/config';
 
 // --- Imports cho tính năng mới ---
 import ejs from 'ejs';
-import { WebSocketServer } from 'ws'; // Cần cài đặt: npm install ws
+import { Server } from "socket.io";
 import { HttpsProxyAgent } from "https-proxy-agent";
 import nodefetch from "node-fetch";
 
@@ -24,9 +24,9 @@ const numCPUs = os.cpus().length;
 // KHỐI PRIMARY (QUẢN LÝ)
 // ===============================
 if (cluster.isPrimary) {
-    console.log(`[Cluster] Primary ${process.pid} is running.`);
+    debugLog(`[Cluster] Primary ${process.pid} is running.`);
     const workersToFork = Math.max(1, Math.floor(numCPUs / 4));
-    console.log(`[Cluster] Sẽ tạo ra ${workersToFork} worker...`);
+    debugLog(`[Cluster] Sẽ tạo ra ${workersToFork} worker...`);
 
     for (let i = 0; i < workersToFork; i++) {
         cluster.fork({ SHARD_ID: i });
@@ -38,12 +38,12 @@ if (cluster.isPrimary) {
             ? worker.process.env.SHARD_ID
             : 'unknown';
 
-        console.log(`[Cluster] Worker ${worker.process.pid} (Shard ${workerShardId}) đã chết. Khởi động lại...`);
+        debugLog(`[Cluster] Worker ${worker.process.pid} (Shard ${workerShardId}) đã chết. Khởi động lại...`);
 
         if (workerShardId !== 'unknown') {
             cluster.fork({ SHARD_ID: workerShardId });
         } else {
-            console.log(`[Cluster] LỖI: Không thể khởi động lại worker ${worker.process.pid} vì không tìm thấy SHARD_ID.`);
+            debugLog(`[Cluster] LỖI: Không thể khởi động lại worker ${worker.process.pid} vì không tìm thấy SHARD_ID.`);
         }
     });
 
@@ -55,35 +55,32 @@ if (cluster.isPrimary) {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
     const shardId = parseInt(process.env.SHARD_ID, 10);
-    const accountsPerShard = 100; // Số lượng tài khoản mỗi worker sẽ xử lý
+    const accountsPerShard = 2; // Số lượng tài khoản mỗi worker sẽ xử lý
 
     if (isNaN(shardId)) {
-        console.log(`[Worker ${process.pid}] LỖI NGHIÊM TRỌNG: Không có SHARD_ID.`);
+        debugLog(`[Worker ${process.pid}] LỖI NGHIÊM TRỌNG: Không có SHARD_ID.`);
         process.exit(1);
     }
-    console.log(`[Worker ${process.pid}] (Shard ${shardId}) đã khởi động.`);
+    debugLog(`[Worker ${process.pid}] (Shard ${shardId}) đã khởi động.`);
 
-    // --- Khởi tạo Redis Client (NẾU CẦN) ---
+    // --- Khởi tạo Redis Client ---
     // const redisUrl = `redis://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`;
     // const pubClient = createClient({ url: redisUrl });
 
-    // Nơi lưu trữ các instance 'api' đang chạy (cục bộ của worker này)
     const runningBots = {};
 
-    // --- Khởi tạo Express ---
     const app = express();
     app.use(express.json());
     const PORT = process.env.PORT || 3302;
     app.set('view engine', 'ejs');
-    app.set('views', path.join(__dirname, 'views')); // Đảm bảo có thư mục 'views'
+    app.set('views', path.join(__dirname, 'views'));
 
-    // Biến toàn cục cho WebSocket, chỉ cho phép 1 kết nối QR tại một thời điểm
     let activeWs = null;
 
-    // --- Logic đọc account từ thư mục 'data/cookies' ---
+    // --- Logic đọc account từ thư mục 'data' ---
     let allAccountsData = [];
     try {
-        const cookiesDir = './data/cookies';
+        const cookiesDir = '/u01/colombo/www/colombo4/nodejs/data/cookies';
         if (!fs.existsSync(cookiesDir)) {
             fs.mkdirSync(cookiesDir, { recursive: true });
             debugLog('NO_ADDR', `[Worker ${shardId}] Thư mục ${cookiesDir} không tồn tại, đã tạo mới.`);
@@ -119,7 +116,7 @@ if (cluster.isPrimary) {
 
 
     async function loginZaloAccountWithQR(customProxy, cred) {
-        console.log('Bắt đầu quá trình đăng nhập Zalo QR...');
+        debugLog('Bắt đầu quá trình đăng nhập Zalo QR...');
         let agent;
         if (customProxy && customProxy.trim() !== "") {
             agent = new HttpsProxyAgent(customProxy);
@@ -144,7 +141,7 @@ if (cluster.isPrimary) {
         zalo.loginQR(null, (qrData) => {
             if (qrData?.data?.image) {
                 const qrCodeImage = `data:image/png;base64,${qrData.data.image}`;
-                console.log('Đã tạo mã QR, đang trả về cho API...');
+                debugLog('Đã tạo mã QR, đang trả về cho API...');
                 resolveQrPromise({ qrCodeImage: qrCodeImage });
             } else {
                 rejectQrPromise(new Error("Không thể lấy mã QR"));
@@ -152,13 +149,13 @@ if (cluster.isPrimary) {
         })
             .then(async (api) => {
                 // 3. PHẦN NÀY SẼ CHẠY NGẦM SAU KHI USER QUÉT MÃ THÀNH CÔNG
-                console.log('Đăng nhập QR thành công, đang chờ kết nối listener...');
+                debugLog('Đăng nhập QR thành công, đang chờ kết nối listener...');
 
                 msgActions(api);
                 groupEventListener(api);
 
                 api.listener.onConnected(() => {
-                    console.log("Zalo SDK đã kết nối listener");
+                    debugLog("Zalo SDK đã kết nối listener");
                     if (activeWs) {
                         activeWs.send("login_success");
                     }
@@ -170,15 +167,15 @@ if (cluster.isPrimary) {
                 const accountInfo = await api.fetchAccountInfo();
                 const { profile } = accountInfo;
                 const ownId = profile.userId;
-                console.log(`Đăng nhập thành công: ${profile.displayName} (${ownId})`);
+                debugLog(`Đăng nhập thành công: ${profile.displayName} (${ownId})`);
 
                 const context = await api.getContext();
                 const { imei, cookie, userAgent } = context;
                 const data = { imei, cookie, userAgent };
-                const cookiesDir = './data/cookies';
+                const cookiesDir = '/u01/colombo/www/colombo4/nodejs/data/cookies';
                 if (!fs.existsSync(cookiesDir)) fs.mkdirSync(cookiesDir, { recursive: true });
                 fs.writeFileSync(`${cookiesDir}/cred_${ownId}.json`, JSON.stringify(data, null, 4));
-                console.log(`Đã lưu cookie vào file cred_${ownId}.json`);
+                debugLog(`Đã lưu cookie vào file cred_${ownId}.json`);
 
                 runningBots[ownId] = api;
 
@@ -251,14 +248,14 @@ if (cluster.isPrimary) {
             }
         });
 
-        const server = app.listen(PORT, () => {
-            console.log(`[Worker ${process.pid}] (Shard ${shardId}) API server đang lắng nghe trên cổng ${PORT}`);
+        const server = app.listen(PORT, "0.0.0.0", () => {
+            debugLog(`[Worker ${process.pid}] (Shard ${shardId}) API server đang lắng nghe trên cổng ${PORT}`);
         });
 
-        const wss = new WebSocketServer({ server, path: '/ws' });
+        const io = new Server(server, { path: '/ws', cors: { origin: "*" } });
 
-        wss.on('connection', ws => {
-            console.log(`[Worker ${process.pid}] Client WebSocket đã kết nối.`);
+        io.on('connection', ws => {
+            debugLog(`[Worker ${process.pid}] Client WebSocket đã kết nối.`);
             if (activeWs) {
                 ws.close(1013, 'Một client khác đang đăng nhập. Vui lòng thử lại sau.');
                 return;
@@ -266,7 +263,7 @@ if (cluster.isPrimary) {
             activeWs = ws;
 
             ws.on('close', () => {
-                console.log(`[Worker ${process.pid}] Client WebSocket đã ngắt kết nối.`);
+                debugLog(`[Worker ${process.pid}] Client WebSocket đã ngắt kết nối.`);
                 if (activeWs === ws) {
                     activeWs = null;
                 }

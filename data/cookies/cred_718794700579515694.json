@@ -1,0 +1,58 @@
+{
+    "imei": "495f6826-06be-43f3-b484-c77cec1fd7c3-a69b52f9d7f760edf3fd052bcda2542f",
+    "cookie": {
+        "version": "tough-cookie@5.1.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+            {
+                "key": "_zlang",
+                "value": "vn",
+                "domain": "zalo.me",
+                "path": "/",
+                "hostOnly": false,
+                "creation": "2025-11-10T10:37:54.561Z",
+                "lastAccessed": "2025-11-10T10:37:54.797Z"
+            },
+            {
+                "key": "zpsid",
+                "value": "Dsxa.447872690.24.s5ZGoP1vpJCYXtmfd7dDC-KAlmUaJlK4ea_q0vwPLYb81fXAaVWD8lbvpJC",
+                "maxAge": 31536000,
+                "domain": "zalo.me",
+                "path": "/",
+                "secure": true,
+                "httpOnly": true,
+                "hostOnly": false,
+                "creation": "2025-11-10T10:37:54.561Z",
+                "lastAccessed": "2025-11-10T10:37:54.797Z",
+                "sameSite": "none"
+            },
+            {
+                "key": "zpw_sek",
+                "value": "gnYH.447872690.a0.jDTFLOvGqmOyhc8Shr3J1lLojcsiQl5__nVZG_yLWtpyOuT-u1E0CVSYWpRfRUuayrupdPI8h5FtKL76dpdJ1W",
+                "maxAge": 7776000,
+                "domain": "chat.zalo.me",
+                "path": "/",
+                "secure": true,
+                "httpOnly": true,
+                "hostOnly": false,
+                "creation": "2025-11-10T10:37:54.561Z",
+                "lastAccessed": "2025-11-10T10:37:54.797Z",
+                "sameSite": "lax"
+            },
+            {
+                "key": "app.event.zalo.me",
+                "value": "1037116684753749997",
+                "domain": "zalo.me",
+                "path": "/",
+                "hostOnly": false,
+                "creation": "2025-11-10T10:37:54.716Z",
+                "lastAccessed": "2025-11-10T10:37:54.797Z"
+            }
+        ]
+    },
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0"
+}
